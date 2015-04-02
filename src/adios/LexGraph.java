@@ -1,30 +1,24 @@
 package adios;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.HashMap;
 
 public class LexGraph {
 	ArrayList<SearchPath> paths;
-	ArrayList<LexNode> nodes;
-
+	HashMap<String, LexNode> nodes;
+	
 	public double eta = 0.1;
 	
 
 	public LexGraph(String corpus) {
+		nodes = new HashMap<String, LexNode>();
 		//Take a string, split it up by periods (FIX LATER) and add to paths.
 		ArrayList<SearchPath> paths = new ArrayList<SearchPath>();
-		String[] sentences = corpus.split(".");
+		String[] sentences = corpus.split("\\.");
 		for (String sentence : sentences)
-			paths.add(SearchPath.fromSentence(sentence));
+			paths.add(SearchPath.fromSentence(this, sentence));
 		this.paths = paths;
 		//Extract all unique nodes out of the paths. 
-		HashSet<String> pieces = new HashSet<String>();
-		for (SearchPath p : paths)
-			for (LexNode n : p)
-				pieces.add(n.toString());
-		nodes = new ArrayList<LexNode>();
-		for (String s : pieces)
-			nodes.add(new LexNode.Leaf(s));
 	}
 	
 	/*
@@ -35,6 +29,7 @@ public class LexGraph {
 	 * if end == false, we're looking at the beginning
 	 */
 	public double P(SearchPath sp, int i, int j, boolean end) {
+		sp.remove(".");
 		int completeMatch = 0;
 		int partialMatch = 0;
 

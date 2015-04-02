@@ -48,6 +48,11 @@ public abstract class LexNode {
 			listForOne.add(this); // I'm so lonely
 			return listForOne;
 		}
+		
+		public String toString() {
+			return word;
+		}
 	}
+	
 
 }

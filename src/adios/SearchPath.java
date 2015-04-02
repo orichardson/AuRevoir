@@ -25,11 +25,18 @@ public class SearchPath extends ArrayList<LexNode> {
 
 	// / ************************** STATIC METHODS *************************
 
-	public static SearchPath fromSentence(String str) {
+	public static SearchPath fromSentence(LexGraph g, String str) {
 		String[] pieces = str.split("\\s+");
 		ArrayList<LexNode> nodes = new ArrayList<LexNode>();
-		for (String s : pieces)
-			nodes.add(new LexNode.Leaf(s));
+		for (String s : pieces) {
+			if (g.nodes.containsKey(s))
+				nodes.add(g.nodes.get(s));
+			else {
+				LexNode l = new LexNode.Leaf(s);
+				g.nodes.put(s, l);
+				nodes.add(l);
+			}
+		}
 		return new SearchPath(nodes);
 	}
 
