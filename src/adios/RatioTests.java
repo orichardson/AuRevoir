@@ -1,0 +1,14 @@
+package adios;
+
+import static org.junit.Assert.*;
+
+import org.junit.Test;
+
+public class RatioTests {
+
+	@Test
+	public void test() {
+		fail("Not yet implemented");
+	}
+
+}

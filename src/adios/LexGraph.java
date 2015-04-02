@@ -63,7 +63,7 @@ public class LexGraph {
 	}
 	
 	public LexNode.Pattern findBestPattern(SearchPath path) {
-		
+		return null;
 	}
 
 	public void generalize() { // ADIOS ALGORITHM

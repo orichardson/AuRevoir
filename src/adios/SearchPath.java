@@ -28,6 +28,7 @@ public class SearchPath extends ArrayList<LexNode> {
 	
 	public static SearchPath fromSentence(String str) {
 		String[] pieces = str.split("\\s+");
+		return null;
 	}
 		
 	
