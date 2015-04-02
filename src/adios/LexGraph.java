@@ -15,7 +15,7 @@ public class LexGraph {
 	 * if end == true, then we're looking at the end
 	 * if end == false, we're looking at the beginning
 	 */
-	private double P(SearchPath sp, int i, int j, boolean end) {
+	public double P(SearchPath sp, int i, int j, boolean end) {
 		int completeMatch = 0;
 		int partialMatch = 0;
 
@@ -56,7 +56,7 @@ public class LexGraph {
 		return partialMatch == 0 ? 0 : completeMatch / (double) partialMatch;
 	}
 
-	private double D(SearchPath vertices, int i, int j, boolean end) {
+	public double D(SearchPath vertices, int i, int j, boolean end) {
 		int diff = end ? 1 : 0;
 		return P(vertices, i - (diff - 1), j + diff, end)
 				/ P(vertices, i, j, end);
