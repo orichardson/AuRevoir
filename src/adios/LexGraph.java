@@ -56,17 +56,17 @@ public class LexGraph {
 		return partialMatch == 0 ? 0 : completeMatch / (double) partialMatch;
 	}
 
-	private double D(SearchPath vertices, int i, int j, boolean end) {
+	private double D(SearchPath sp, int i, int j, boolean end) {
 		int diff = end ? 1 : 0;
-		return P(vertices, i - (diff - 1), j + diff, end)
-				/ P(vertices, i, j, end);
+		return P(sp, i - (diff - 1), j + diff, end)
+				/ P(sp, i, j, end);
 	}
 	
 	public LexNode.Pattern findBestPattern(SearchPath path) {
 		
 	}
 
-	public void generalize() { // ADIOS ALGORITHM
+	public void ADIOS() { // ADIOS ALGORITHM
 
 	}
 }

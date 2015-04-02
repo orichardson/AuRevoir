@@ -9,7 +9,7 @@ public class Generator {
 
 		LexGraph graph = null; // make lexGraph
 		//Run ADIOS algorithm  --- i.e. generalize graph
-		graph.generalize();
+		graph.ADIOS();
 		
 		//generate things from LexGraph?!?!? 
 	}
