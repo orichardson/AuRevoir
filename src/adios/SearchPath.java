@@ -14,18 +14,17 @@ public class SearchPath extends ArrayList<LexNode> {
 		for (LexNode n : nodes)
 			add(n);
 	}
-	
+
 	public ArrayList<SearchPath> expandAll() {
 		return expandAll(this);
 	}
 
-
 	public SearchPath copy() {
 		return new SearchPath(this);
 	}
-	
-	/// ************************** STATIC METHODS *************************
-	
+
+	// / ************************** STATIC METHODS *************************
+
 	public static SearchPath fromSentence(String str) {
 		String[] pieces = str.split("\\s+");
 		ArrayList<LexNode> nodes = new ArrayList<LexNode>();
@@ -33,8 +32,7 @@ public class SearchPath extends ArrayList<LexNode> {
 			nodes.add(new LexNode.Leaf(s));
 		return new SearchPath(nodes);
 	}
-		
-	
+
 	public static ArrayList<SearchPath> expandAll(ArrayList<LexNode> list) {
 		ArrayList<SearchPath> paths = null;
 
@@ -61,5 +59,4 @@ public class SearchPath extends ArrayList<LexNode> {
 
 		return paths;
 	}
-
 }

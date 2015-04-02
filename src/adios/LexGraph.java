@@ -1,6 +1,7 @@
 package adios;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 
 public class LexGraph {
 	ArrayList<SearchPath> paths;
@@ -88,3 +89,4 @@ public class LexGraph {
 
 	}
 }
+
