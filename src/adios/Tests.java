@@ -6,6 +6,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class Tests {
+	
+	private void test() {}
 
 	public static void main(String[] args) {
 		String s1 = "The dog is cute.";
