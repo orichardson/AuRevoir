@@ -5,7 +5,7 @@ import java.util.ArrayList;
 public abstract class LexNode {
 	public abstract ArrayList<LexNode> expand();
 
-	public static class Eqivalence extends LexNode {
+	public static class Equivalence extends LexNode {
 		ArrayList<LexNode> pieces; // choose any piece; they are equivalent
 
 		public ArrayList<LexNode> expand() {
