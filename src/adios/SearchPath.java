@@ -37,7 +37,9 @@ public class SearchPath extends ArrayList<LexNode> {
 		return -1;
 	}
 
-	public boolean replace(LexNode.Pattern P, int i, int j) {
+	//Typically, P will be a pattern. But for generalization,
+	//it will also be a equivalence class.
+	public boolean replace(LexNode P, int i, int j) {
 		for (int k = i; k <= j; k++) {
 			remove(i); //since arraylist will shift, remove the same spot
 		}
