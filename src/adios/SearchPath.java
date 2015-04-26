@@ -26,7 +26,7 @@ public class SearchPath extends ArrayList<LexNode> {
 	public int match(SearchPath other, int i, int j) {
 		int currentIndex = i;
 		for (int k = 0; k < other.size(); k++) {
-			if (get(currentIndex) == other.get(k)) {
+			if (get(currentIndex) == other.get(k)) { //there may be some issues here.
 				currentIndex++;
 				if (currentIndex == j)
 					return k - (j - i);

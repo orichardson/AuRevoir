@@ -4,6 +4,7 @@ ArrayList<LexNode.Equivalence> eclasses;
 double eta = 0.65;
 double alpha = 0.001;
 double L = 3;
+double omega = 0.65;
 
 public double l(SearchPath sp, int i, int j) {
 	double match = 0;
@@ -51,12 +52,13 @@ public Object[] most_sgf(SearchPath sp) {
 	return new Object[] {LexNode.Pattern(subpath), ii, jj};
 }
 
+//Do we need a compute backwards (left) significance method?
 public double significance(SearchPath sp, int i, int j) {
 	double sum = 0;
 	for (int x = 0; x <= l(sp, i, j); x++) {
 		sum += binom(l(sp, i, j - 1), x, eta*P(sp, i, j - 1, true));
 	}
-	return sum;
+	return Math.min(Math.max(significance, 0.0), 1.0);
 }
 
 public double binom(n, k, p) {
@@ -115,4 +117,14 @@ public LexNode.Equivalence equiv(SearchPath sp, int i, int j) {
 			toReturn.pieces.add(p.get(j));
 	}
 	return toReturn;
+}
+
+public void generalization_bootstrap(boolean a) {
+	for (SearchPath p : paths) {
+		for (int i = 0; i < p.size() - L - 1; i++) {
+			for (int j = i + 1; j <= i + L - 2; j++) {
+
+			}
+		}
+	}
 }
