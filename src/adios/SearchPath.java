@@ -22,6 +22,29 @@ public class SearchPath extends ArrayList<LexNode> {
 	public SearchPath copy() {
 		return new SearchPath(this);
 	}
+	
+	public int match(SearchPath other, int i, int j) {
+		int currentIndex = i;
+		for (int k = 0; k < other.size(); k++) {
+			if (get(currentIndex) == other.get(k)) {
+				currentIndex++;
+				if (currentIndex == j)
+					return k - (j - i);
+			else
+				currentIndex = i;
+			}
+		}
+		return -1;
+	}
+
+	public boolean replace(LexNode.Pattern P, int i, int j) {
+		for (int k = i; k <= j; k++) {
+			remove(i); //since arraylist will shift, remove the same spot
+		}
+		add(P, i); //add a note at index i
+	}
+
+
 
 	// / ************************** STATIC METHODS *************************
 

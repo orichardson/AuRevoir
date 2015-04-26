@@ -8,6 +8,10 @@ public abstract class LexNode {
 	public static class Equivalence extends LexNode {
 		ArrayList<LexNode> pieces; // choose any piece; they are equivalent
 
+		public Equivalence() {
+			pieces = new ArrayList<LexNode>();
+		}
+
 		public ArrayList<LexNode> expand() {
 			ArrayList<LexNode> nodes = new ArrayList<LexNode>();
 
