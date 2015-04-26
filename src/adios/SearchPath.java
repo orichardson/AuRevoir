@@ -30,13 +30,12 @@ public class SearchPath extends ArrayList<LexNode> {
 				currentIndex++;
 				if (currentIndex == j)
 					return k - (j - i);
-			else
+			} else 
 				currentIndex = i;
-			}
 		}
 		return -1;
 	}
-
+	//TODO: can make this more efficient
 	//Typically, P will be a pattern. But for generalization,
 	//it will also be a equivalence class.
 	public boolean replace(LexNode P, int i, int j) {
