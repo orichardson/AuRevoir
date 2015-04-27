@@ -5,10 +5,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
-import org.apache.commons.math3.util.CombinatoricsUtils;
-
-import adios.LexNode.Pattern;
-
 public class LexGraph {
 
 	HashMap<String, LexNode> nodes;
@@ -102,13 +98,9 @@ public class LexGraph {
 		int j = i + subpath.size();
 		
 		for (int x = 0; x <= l(sp, i, j); x++) {
-			sum += binom(l(sp, i, j - 1), x, eta * P(sp, i, j - 1, true));
+			sum += CombinatoricsUtils.binom(l(sp, i, j - 1), x, eta * P(sp, i, j - 1, true));
 		}
 		return Math.min(Math.max(sum, 0.0), 1.0);
-	}
-
-	public double binom(int n, int k, double p) {
-		return CombinatoricsUtils.binomialCoefficient(n, k) * Math.pow(p, k) * Math.pow(1 - p, k);
 	}
 
 	public void rewire(LexNode.Pattern P, boolean a) {
@@ -180,48 +172,67 @@ public class LexGraph {
 		return toReturn;
 	}
 
-	public void generalization_bootstrap(boolean a) {
+	public boolean generalization_bootstrap(boolean a) {
 		for (SearchPath p : paths) {
 			SearchPath pc = p.copy();
-			Object[] bestPattern = null;	
+			LexNode.Pattern bestPattern = null;
+			LexNode.Equivalence bestEquivalence = null;
+			double bestOverlap = 0;
 			for (int i = 0; i < p.size() - L - 1; i++) {
 				for (int j = i + 1; j <= i + L - 2; j++) {
-					//handles 4a, i
-					ArrayList<OPair<SearchPath, Integer>> matches = endpoint_match(p, i, p.size() - L - 2);
-					//handles 4a, ii
-					LexNode e = compare(p, matches, i, j);
-					pc.replace(e, j, j);
+					//4a, i: Finds all subpaths of paths that match the subpath of p at the endpoints i and K - L - 2. Remember the paper indexes by 1. 
+					ArrayList<SearchPath> matches = endpoint_match(p.copy(i, p.size() - L - 1)); //Remember right endpoint is excluded.
+					//4a, ii: Selects the equivalence class with the largest overlap with encountered vertices at spot j. 
+					LexNode.Equivalence e = compare(p, matches, i, j);
+					pc.replace(e, j, j + 1); //Construct the generalized search path. 
 				}
 
 				for (int k = i + 1; k <= i + L - 2; k++) {
 					for (int j = i + 1; j <= i + L - 2; j++) {
 						if (j == k)
 							continue;
-
-						pc.get(k).retainAll(pc.get(j)); //TODO: intersect over all j or just one?
-
-						Object[] temp = most_sgf(pc);
-						if (bestPattern == null)
-							bestPattern = temp;
-						else if (significance(temp[0], temp[1], temp[2]) > significance(bestPattern[0], bestPattern[1], bestPattern[2]))
-							bestPattern = temp;
+						//Consider all paths going through all vertices in (vertex k (an equivalence class) intersect vertex j (an equivalence class))
+						//TODO: intersect over all j or just one?
+						LexNode.Equivalence vertex_k = (LexNode.Equivalence) pc.get(k); 
+						LexNode.Equivalence vertex_j = (LexNode.Equivalence) pc.get(j);
+						vertex_k.pieces.retainAll(vertex_j.pieces); 
+						//Perform MEX on this generalized path
+						LexNode.Pattern candidatePattern = extractSignificantPattern(pc);
+						
+						//Extract the leading pattern P, as well as equivalence class associated with P, and the overlap of that class.
+						if (bestPattern == null || (significance(pc, candidatePattern) < significance(pc, bestPattern))) { //Less than because significance is measured in p-values.
+							bestPattern = candidatePattern;
+							bestEquivalence = vertex_k;
+							bestOverlap = vertex_k.pieces.size()/vertex_j.pieces.size();
+						}
 
 					}
 				}
 			}
-			rewire()
+			
+			//If the overlap is < 1, define a new equivalence class consisting of only "those members that did appear in the set"
+			//I take this to mean the members in the intersection of vertex_k and vertex_j above, since it would be redundant
+			//to add the equivalence class at vertex_j.
+			if (bestOverlap < 1)
+				eclasses.add(bestEquivalence);
+			
+			//4d
+			rewire(bestPattern, a);
+			bestPattern = null; bestEquivalence = null; bestOverlap = 0;
 		}
+		
+		return false; 
+		//TODO: How to repeat this method until no further significant patterns are found?
+		//Currently, we will be forever adding new patterns due to the bestPattern == null condition.
 	}
 	
 	//TODO: usually, returns an equivalence class. Sometimes the equivalence class
 	//may only consist of one LexNode, so the return is a LexNode. 
-	public LexNode compare(SearchPath p, ArrayList<OPair<SearchPath, Integer>> matches,
-			int i, int j) {
+	//TODO: I don't see a way around mentioning the indices.
+	public LexNode.Equivalence compare(SearchPath p, ArrayList<SearchPath> matches, int i, int j) {
 		HashSet<LexNode> encountered = new HashSet<LexNode>();
-		for (OPair<SearchPath, Integer> pair : matches) {
-			SearchPath pp = pair.l;
-			int k = pair.r;
-			encountered.add(pp.get(k + j - i));
+		for (SearchPath path : matches) {
+			encountered.add(path.get(j - i)); //Since matches consist of subpaths, we don't need the shift that the OPair lets us store.
 		}
 
 		double intersect = 0;
@@ -231,28 +242,34 @@ public class LexGraph {
 			HashSet<LexNode> eclass = new HashSet<LexNode>(e.pieces);
 			double size = encountered.size();
 			encountered.retainAll(eclass);
-			if (encountered.size() / size > intersect && encountered.size() / size > 0.65)
+			if (encountered.size() / size > intersect && encountered.size() / size > omega)
 				best = e;
 		}
-
-		return best == null ? p.get(j) : best;
+		
+		LexNode.Equivalence toReturn = new LexNode.Equivalence();
+		if (best == null) {
+			toReturn.pieces.add(p.get(j));
+			return toReturn;
+		} else
+			return best;
 	}
 
 	// Handles step 4, a, i
-	public ArrayList<OPair<SearchPath, Integer>> endpoint_match(SearchPath path, int i, int j) {
-		ArrayList<OPair<SearchPath, Integer>> toReturn = new ArrayList<OPair<SearchPath, Integer>>();
+	public ArrayList<SearchPath> endpoint_match(SearchPath subpath) {
+		ArrayList<SearchPath> toReturn = new ArrayList<SearchPath>();
 		for (SearchPath p : paths) {
-			for (int k = 0; k < p.size(); k++) {
+			for (int start = 0; start < p.size(); start++) {
 				boolean match = false;
+				int end = start + subpath.size() - 1;
 				try {
-					boolean matches = path.get(i).equals(p.get(k))
-							&& path.get(j).equals(p.get(k + j - i));
-				} catch (Exception e) {
-					continue;
-				}
+					match = (p.get(start) == subpath.get(0))
+							&& (p.get(end) == subpath.get(subpath.size() - 1));
+				} catch (Exception e) { continue; }
+				
 				if (match)
-					toReturn.add(new OPair(p, k));
+					toReturn.add(p.copy(start, end + 1)); //end + 1 since copy is exclusive on the right endpoint.
 			}
 		}
+		return toReturn;
 	}
 }
