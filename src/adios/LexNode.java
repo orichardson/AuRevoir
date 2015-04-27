@@ -1,15 +1,20 @@
+
 package adios;
 
 import java.util.ArrayList;
 
 public abstract class LexNode {
+	public String name;
+
 	public abstract ArrayList<LexNode> expand();
 
 	public static class Equivalence extends LexNode {
+		private static int NEQIV = 0; // number of equivalence ndoes so far; use for naming.
 		ArrayList<LexNode> pieces; // choose any piece; they are equivalent
 
 		public Equivalence() {
 			pieces = new ArrayList<LexNode>();
+			this.name = "E" + (++NEQIV);
 		}
 
 		public ArrayList<LexNode> expand() {
@@ -23,10 +28,12 @@ public abstract class LexNode {
 	}
 
 	public static class Pattern extends LexNode {
+		private static int NPATT = 0; // number of equivalence ndoes so far; use for naming.
 		ArrayList<LexNode> pieces; // need all of the pieces together in order
 
 		public Pattern(ArrayList<LexNode> a) {
 			this.pieces = a;
+			this.name = "P" + (++NPATT);
 		}
 
 		public ArrayList<LexNode> expand() {
@@ -41,10 +48,9 @@ public abstract class LexNode {
 	}
 
 	public static class Leaf extends LexNode {
-		String word;
 
 		public Leaf(String s) {
-			this.word = s;
+			this.name = s;
 		}
 
 		public ArrayList<LexNode> expand() {
@@ -52,11 +58,9 @@ public abstract class LexNode {
 			listForOne.add(this); // I'm so lonely
 			return listForOne;
 		}
-		
-		public String toString() {
-			return word;
-		}
 	}
-	
 
+	public String toString() {
+		return name;
+	}
 }

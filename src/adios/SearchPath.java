@@ -1,3 +1,4 @@
+
 package adios;
 
 import java.util.ArrayList;
@@ -22,30 +23,32 @@ public class SearchPath extends ArrayList<LexNode> {
 	public SearchPath copy() {
 		return new SearchPath(this);
 	}
-	
+
+	/*
+	 * Find index at which the other matches this search path?
+	 */
 	public int match(SearchPath other, int i, int j) {
 		int currentIndex = i;
+
 		for (int k = 0; k < other.size(); k++) {
-			if (get(currentIndex) == other.get(k)) { //there may be some issues here.
+			if (get(currentIndex) == other.get(k)) { // there may be some issues here.
 				currentIndex++;
+				
 				if (currentIndex == j)
 					return k - (j - i);
-			} else 
+			} else
 				currentIndex = i;
 		}
+
 		return -1;
 	}
-	//TODO: can make this more efficient
-	//Typically, P will be a pattern. But for generalization,
-	//it will also be a equivalence class.
-	public boolean replace(LexNode P, int i, int j) {
-		for (int k = i; k <= j; k++) {
-			remove(i); //since arraylist will shift, remove the same spot
-		}
-		add(P, i); //add a note at index i
+
+	// Typically, P will be a pattern. But for generalization,
+	// it will also be a equivalence class.
+	public void replace(LexNode P, int i, int j) {
+		removeRange(i, j);
+		add(i, P); // add a note at index i
 	}
-
-
 
 	// / ************************** STATIC METHODS *************************
 
