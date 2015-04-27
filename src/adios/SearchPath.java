@@ -23,21 +23,29 @@ public class SearchPath extends ArrayList<LexNode> {
 	public SearchPath copy() {
 		return new SearchPath(this);
 	}
+	
+	//TODO: copy returns a subpath of this SearchPath from i (inclusive) to j (exclusive)
+	public SearchPath copy(int i, int j) {
+		SearchPath toReturn = new SearchPath();
+		for (int k = i; k < j; k++)
+			toReturn.add(get(k));
+		return toReturn;
+	}
 
 	/*
-	 * Find index at which the other matches this search path?
+	 * Find whether there is a portion of this SearchPath that matches subpath. 
 	 */
-	public int match(SearchPath other, int i, int j) {
-		int currentIndex = i;
+	public int match(SearchPath subpath) {
+		int currentIndex = 0;
 
-		for (int k = 0; k < other.size(); k++) {
-			if (get(currentIndex) == other.get(k)) { // there may be some issues here.
+		for (int k = 0; k < size(); k++) {
+			if (subpath.get(currentIndex) == get(k)) { // there may be some issues here.
 				currentIndex++;
 				
-				if (currentIndex == j)
-					return k - (j - i);
+				if (currentIndex == subpath.size() - 1)
+					return k - subpath.size(); //TODO: off by one error?
 			} else
-				currentIndex = i;
+				currentIndex = 0;
 		}
 
 		return -1;
@@ -46,7 +54,7 @@ public class SearchPath extends ArrayList<LexNode> {
 	// Typically, P will be a pattern. But for generalization,
 	// it will also be a equivalence class.
 	public void replace(LexNode P, int i, int j) {
-		removeRange(i, j);
+		removeRange(i, j); 
 		add(i, P); // add a note at index i
 	}
 

@@ -7,6 +7,8 @@ import java.util.HashSet;
 
 import org.apache.commons.math3.util.CombinatoricsUtils;
 
+import adios.LexNode.Pattern;
+
 public class LexGraph {
 
 	HashMap<String, LexNode> nodes;
@@ -16,7 +18,7 @@ public class LexGraph {
 
 	double eta = 0.65;
 	double alpha = 0.001;
-	double L = 3;
+	int L = 3;
 	double omega = 0.65;
 
 	public LexGraph(String corpus) {
@@ -73,10 +75,13 @@ public class LexGraph {
 		int jj = 0;
 
 		for (int i = 0; i < sp.size(); i++)
-			for (int j = i; j < i; j++) {
-				double temp = significance(sp, i, j);
+			for (int j = i + 1; j < i; j++) {
+				LexNode.Pattern candidatePattern = new LexNode.Pattern(sp.copy(i, j + 1));
+				double temp = significance(sp, candidatePattern);
 				
 				//TODO: Worry: Shouldn't significance be GREATER than some threshold alpha?
+				//TODO: Reply: No, the significance is measured by the p-value of the hypothesis test,
+				//which as normal needs to be less than alpha.
 				if (temp < alpha && temp <= min) {
 					min = temp;
 					ii = i;
@@ -92,8 +97,15 @@ public class LexGraph {
 	}
 
 	// Do we need a compute backwards (left) significance method?
-	public double significance(SearchPath sp, int i, int j) {
+	public double significance(SearchPath sp, LexNode.Pattern P) {
 		double sum = 0;
+		
+		//TODO: created an index free version of this method.
+		SearchPath subpath = new SearchPath(); 
+		subpath.add(P);
+		int i = sp.match(subpath);
+		int j = i + subpath.size();
+		
 		for (int x = 0; x <= l(sp, i, j); x++) {
 			sum += binom(l(sp, i, j - 1), x, eta * P(sp, i, j - 1, true));
 		}
@@ -108,49 +120,48 @@ public class LexGraph {
 		//create new vertex corresponding to pattern
 		nodes.put(P.name,P);
 		
+		//TODO: I created a subpath out of P to be passed into SearchPath's match method.
+		SearchPath subpath = new SearchPath();
+		subpath.add(P);
 		// Replace, in every path, the portion that matches with P
-		for (SearchPath sp : paths) {
-			int ii = path.match(sp, i, j);
+		for (SearchPath path : paths) {
+			int ii = path.match(subpath);
 			
-			if (ii > 0 && (a || significance(sp, ii, ii + j - i) < alpha))
-				sp.replace(P, ii, ii + j - i);
+			if (ii > 0 && (a || significance(path, P) < alpha))
+				path.replace(P, ii, ii + subpath.size());
 		}
 	}
 
 	public void pattern_distillation(boolean a) {
 		for (SearchPath p : paths) {
 			LexNode.Pattern temp = extractSignificantPattern(p); // 2a
-			rewire(temp, p, temp[1], temp[2], a); // 2b
+			rewire(temp, a); // 2b
 		}
 	}
 
 	public void generalization_first(boolean a) {
 		eclasses = new ArrayList<LexNode.Equivalence>();
-		Object[] most_sgf_pat = null;
+		LexNode.Pattern mostSignificantPattern = null;
 		LexNode.Equivalence e = null;
 		for (SearchPath p : paths) {
 			// these two loops handle 3a and 3b
 			for (int i = 0; i < p.size() - L - 1; i++) {
 				for (int j = i + 1; j <= i + L - 2; j++) {
 					SearchPath pc = p.copy();
-					e = equiv(sp, i, j);
+					e = equiv(p, i, j);
 
 					pc.replace(e, i, i);
-					Object[] can_pat = most_sgf(pc); // candidate pattern
+					LexNode.Pattern candidatePattern = extractSignificantPattern(pc); // candidate pattern
 
-					if (most_sgf_pat == null)
-						most_sgf_pat = temp2;
-
-					else if (significance(most_sgf_pat[0], most_sgf_pat[1], most_sgf_pat[2]) > significance(
-							can_pat[0], can_pat[1], can_pat[2]))
-						most_sgf_pat = temp2;
+					if (mostSignificantPattern == null || (significance(p, candidatePattern) > significance(p, mostSignificantPattern)))
+						mostSignificantPattern = candidatePattern;
 				}
 			}
 			// handles 3c
 			eclasses.add(e); // TODO: this isn't the correct e (the one corresponding to P)
 			// handles 3d
-			rewire(most_sgf_pat[0], p, most_sgf_pat[1], most_sgf_pat[2]);
-			most_sgf_pat = null; // reset most_sgf_pat.
+			rewire(mostSignificantPattern, a);
+			mostSignificantPattern = null; // reset mostSignificantPattern
 		}
 	}
 
@@ -158,7 +169,9 @@ public class LexGraph {
 		LexNode.Equivalence toReturn = new LexNode.Equivalence();
 		toReturn.pieces.add(sp.get(j));
 		for (SearchPath p : paths) {
-			if (sp.match(p, i, j - 1) > 0 && sp.match(p, j + 1, i + L - 1) > 0)
+			SearchPath left = sp.copy(i, j); //subpath from i (inclusive) to j - 1 (inclusive)
+			SearchPath right = sp.copy(j + 1, i + L); //subpath from j + 1 (inclusive) to i + L - 1 (inclusive)
+			if (p.match(left) > 0 && p.match(right) > 0)
 				toReturn.pieces.add(p.get(j)); // TODO: the match won't be at j
 		}
 		return toReturn;
@@ -177,8 +190,8 @@ public class LexGraph {
 					pc.replace(e, j, j);
 				}
 
-				for (k = i + 1; k <= i + L - 2; k++) {
-					for (j = i + 1; j <= i + L - 2; j++) {
+				for (int k = i + 1; k <= i + L - 2; k++) {
+					for (int j = i + 1; j <= i + L - 2; j++) {
 						if (j == k)
 							continue;
 
@@ -200,16 +213,16 @@ public class LexGraph {
 			int i, int j) {
 		HashSet<LexNode> encountered = new HashSet<LexNode>();
 		for (OPair<SearchPath, Integer> pair : matches) {
-			SearchPath p = pair.l;
+			SearchPath pp = pair.l;
 			int k = pair.r;
-			encountered.add(p.get(k + j - i));
+			encountered.add(pp.get(k + j - i));
 		}
 
 		double intersect = 0;
 		LexNode.Equivalence best = null;
 
 		for (LexNode.Equivalence e : eclasses) {
-			HashSet<LexNode> eclass = new HashSet<LexNode>(e);
+			HashSet<LexNode> eclass = new HashSet<LexNode>(e.pieces);
 			double size = encountered.size();
 			encountered.retainAll(eclass);
 			if (encountered.size() / size > intersect && encountered.size() / size > 0.65)
@@ -226,7 +239,7 @@ public class LexGraph {
 			for (int k = 0; k < p.size(); k++) {
 				boolean match = false;
 				try {
-					boolean match = path.get(i).equals(p.get(k))
+					boolean matches = path.get(i).equals(p.get(k))
 							&& path.get(j).equals(p.get(k + j - i));
 				} catch (Exception e) {
 					continue;
