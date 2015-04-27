@@ -34,16 +34,17 @@ public class SearchPath extends ArrayList<LexNode> {
 
 	/*
 	 * Find whether there is a portion of this SearchPath that matches subpath. 
+	 * Returns the index of the first match. Returns -1 otherwise.
 	 */
 	public int match(SearchPath subpath) {
 		int currentIndex = 0;
-
+		//TODO: this method was changed to index free input.
 		for (int k = 0; k < size(); k++) {
-			if (subpath.get(currentIndex) == get(k)) { // there may be some issues here.
+			if (subpath.get(currentIndex) == get(k)) { // there may be some issues here later?
 				currentIndex++;
 				
 				if (currentIndex == subpath.size() - 1)
-					return k - subpath.size(); //TODO: off by one error?
+					return k - subpath.size() + 1;
 			} else
 				currentIndex = 0;
 		}
@@ -52,8 +53,10 @@ public class SearchPath extends ArrayList<LexNode> {
 	}
 
 	// Typically, P will be a pattern. But for generalization,
-	// it will also be a equivalence class.
+	// it will also be a equivalence class. Removal on the right
+	// index is exclusive.
 	public void replace(LexNode P, int i, int j) {
+		//TODO: check the entire SearchPath for a match with P? Currently we are not doing this.
 		removeRange(i, j); 
 		add(i, P); // add a note at index i
 	}

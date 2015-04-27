@@ -44,11 +44,11 @@ public class LexGraph {
 
 				for (int k = 0; k < p.size(); k++) {
 					// Will comparing addresses for equivalence classes and patterns be enough?
-					if (p.get(k).equals(vertices.get(currentIndex))) {
+					if (p.get(k) == vertices.get(currentIndex)) {
 						currentIndex++;
 						if (currentIndex == j) {
 							match++;
-							currentIndex = i;
+							currentIndex = i; //TODO: should this be removed? Currently, it will keep searching the SearchPath.
 						}
 					} else
 						currentIndex = i;
@@ -71,29 +71,24 @@ public class LexGraph {
 	// Find the leading significant pattern.
 	public LexNode.Pattern extractSignificantPattern(SearchPath sp) {
 		double min = 1;
-		int ii = 0;
-		int jj = 0;
-
+		LexNode.Pattern bestPattern = null;
 		for (int i = 0; i < sp.size(); i++)
-			for (int j = i + 1; j < i; j++) {
+			for (int j = i + 1; j < i; j++) {//TODO: for some reason, j was set to start at i. I changed this to i + 1.
+				//TODO: Create a candidate pattern. Maybe this is unnecessary, and one should just have
+				//an index free significance method and an index dependent one?
 				LexNode.Pattern candidatePattern = new LexNode.Pattern(sp.copy(i, j + 1));
-				double temp = significance(sp, candidatePattern);
+				double sig = significance(sp, candidatePattern);
 				
 				//TODO: Worry: Shouldn't significance be GREATER than some threshold alpha?
 				//TODO: Reply: No, the significance is measured by the p-value of the hypothesis test,
-				//which as normal needs to be less than alpha.
-				if (temp < alpha && temp <= min) {
-					min = temp;
-					ii = i;
-					jj = j;
+				//which, as normal, needs to be less than alpha.
+				if (bestPattern == null || (sig < alpha && sig <= min)) {
+					bestPattern = candidatePattern;
+					min = sig;
 				}
 			}
 
-		ArrayList<LexNode> subpath = new ArrayList<LexNode>();
-		for (int i = ii; i <= jj; i++)
-			subpath.add(sp.get(i));
-
-		return new LexNode.Pattern(subpath);
+		return bestPattern;
 	}
 
 	// Do we need a compute backwards (left) significance method?
@@ -128,7 +123,9 @@ public class LexGraph {
 			int ii = path.match(subpath);
 			
 			if (ii > 0 && (a || significance(path, P) < alpha))
-				path.replace(P, ii, ii + subpath.size());
+				path.replace(P, ii, ii + subpath.size()); 
+				//removal is exclusive on the right endpoint, hence ii + subpath.size() rather than
+				//ii + subpath.size() - 1
 		}
 	}
 
@@ -142,37 +139,43 @@ public class LexGraph {
 	public void generalization_first(boolean a) {
 		eclasses = new ArrayList<LexNode.Equivalence>();
 		LexNode.Pattern mostSignificantPattern = null;
-		LexNode.Equivalence e = null;
+		LexNode.Equivalence mostSignificantEquivalence = null;
 		for (SearchPath p : paths) {
 			// these two loops handle 3a and 3b
 			for (int i = 0; i < p.size() - L - 1; i++) {
 				for (int j = i + 1; j <= i + L - 2; j++) {
-					SearchPath pc = p.copy();
-					e = equiv(p, i, j);
+					SearchPath pc = p.copy(); //Don't want to alter original SearchPath.
+					LexNode.Equivalence e = equiv(p, i, j);
+					pc.replace(e, j, j + 1); //Replacement is exclusive on the right endpoint. 
+					
+					LexNode.Pattern candidatePattern = extractSignificantPattern(pc); // candidate pattern from the SearchPath. 
 
-					pc.replace(e, i, i);
-					LexNode.Pattern candidatePattern = extractSignificantPattern(pc); // candidate pattern
-
-					if (mostSignificantPattern == null || (significance(p, candidatePattern) > significance(p, mostSignificantPattern)))
+					if (mostSignificantPattern == null || (significance(p, candidatePattern) > significance(p, mostSignificantPattern))) {
 						mostSignificantPattern = candidatePattern;
+						mostSignificantEquivalence = e; //Want to store the equivalence class associated with the pattern.
+					}
 				}
 			}
 			// handles 3c
-			eclasses.add(e); // TODO: this isn't the correct e (the one corresponding to P)
+			eclasses.add(mostSignificantEquivalence); 
 			// handles 3d
 			rewire(mostSignificantPattern, a);
-			mostSignificantPattern = null; // reset mostSignificantPattern
+			mostSignificantPattern = null; // reset mostSignificantPattern. TODO: This *probably* won't result in null pointers later on.
+			mostSignificantEquivalence = null;
 		}
 	}
-
+	
+	//Returns an equivalence class at index j, where the path is known to start at i
+	//and go to i + L - 1
 	public LexNode.Equivalence equiv(SearchPath sp, int i, int j) {
 		LexNode.Equivalence toReturn = new LexNode.Equivalence();
 		toReturn.pieces.add(sp.get(j));
 		for (SearchPath p : paths) {
 			SearchPath left = sp.copy(i, j); //subpath from i (inclusive) to j - 1 (inclusive)
 			SearchPath right = sp.copy(j + 1, i + L); //subpath from j + 1 (inclusive) to i + L - 1 (inclusive)
-			if (p.match(left) > 0 && p.match(right) > 0)
-				toReturn.pieces.add(p.get(j)); // TODO: the match won't be at j
+			int leftMatch = p.match(left); //this is stored so that the node in p can be retrieved. 
+			if (leftMatch > 0 && p.match(right) > 0)
+				toReturn.pieces.add(p.get(leftMatch + j - i - 1)); //TODO: the j - i - 1 brings us to the corresponding node in p
 		}
 		return toReturn;
 	}
@@ -186,7 +189,7 @@ public class LexGraph {
 					//handles 4a, i
 					ArrayList<OPair<SearchPath, Integer>> matches = endpoint_match(p, i, p.size() - L - 2);
 					//handles 4a, ii
-					LexNode.Equivalence e = compare(p, matches, i, j);
+					LexNode e = compare(p, matches, i, j);
 					pc.replace(e, j, j);
 				}
 
@@ -209,7 +212,10 @@ public class LexGraph {
 			rewire()
 		}
 	}
-	public LexNode.Equivalence compare(SearchPath p, ArrayList<OPair<SearchPath, Integer>> matches,
+	
+	//TODO: usually, returns an equivalence class. Sometimes the equivalence class
+	//may only consist of one LexNode, so the return is a LexNode. 
+	public LexNode compare(SearchPath p, ArrayList<OPair<SearchPath, Integer>> matches,
 			int i, int j) {
 		HashSet<LexNode> encountered = new HashSet<LexNode>();
 		for (OPair<SearchPath, Integer> pair : matches) {
