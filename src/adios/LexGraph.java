@@ -3,12 +3,15 @@ package adios;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import adios.LexNode.Pattern;
+import adios.LexNode.Pattern.CandidatePattern;
+import adios.LexNode.Equivalence;
 
 public class LexGraph {
 
 	HashMap<String, LexNode> nodes;
-	HashMap<String, LexNode.Equivalence> eclasses;
-	HashMap<String, LexNode.Pattern> pattern; 
+	HashMap<String, Equivalence> eclasses;
+	HashMap<String, Pattern> pattern; 
 	ArrayList<SearchPath> paths;
 
 	double eta = 0.65;
@@ -31,16 +34,12 @@ public class LexGraph {
 	 */
 	public LexGraph(ArrayList<String> sentences) {
 		nodes = new HashMap<String, LexNode>();
-		eclasses = new HashMap<String, LexNode.Equivalence>();
-		// Take a string, split it up by periods (FIX LATER) and add to paths.
-		ArrayList<SearchPath> paths = new ArrayList<SearchPath>();
-		//String[] sentences = corpus.split("\\.");
+		eclasses = new HashMap<String, Equivalence>();
+		pattern = new HashMap<String, Pattern>();
+		paths = new ArrayList<SearchPath>();
 		
 		for (String sentence : sentences)
 			paths.add(SearchPath.fromSentence(this, sentence));
-
-		this.paths = paths;
-		// Extract all unique nodes out of the paths.
 	}
 	
 	/**
@@ -49,8 +48,8 @@ public class LexGraph {
 	 */
 	public void pattern_distillation(boolean a) {
 		for (SearchPath p : paths) {
-			LexNode.Pattern temp = extractSignificantPattern(p); //2a: find the leading significant pattern
-			rewire(temp, a); //2b: rewire the graph
+			Pattern temp = extractSignificantPattern(p); //2a: find the leading significant pattern
+			if (temp != null) {	rewire(temp, a); } // 2b: rewire the graph
 		}
 	}
 	
@@ -61,8 +60,8 @@ public class LexGraph {
 	public void generalization_first(boolean a) {
 		//Need to find the mostSignificantPattern, and the mostSignificantEquivalence
 		//associated with the mostSignificantPattern.
-		LexNode.Pattern mostSignificantPattern = null;
-		LexNode.Equivalence mostSignificantEquivalence = null;
+		Pattern mostSignificantPattern = null;
+		Equivalence mostSignificantEquivalence = null;
 		double mostSignificant = 1;
 		for (SearchPath p : paths) {
 			//These two loops handle 3a and 3b. 
@@ -72,12 +71,12 @@ public class LexGraph {
 					SearchPath pc = p.copy(); // Don't want to alter original SearchPath.
 					//3a: alter SearchPath pc so that it is the generalized search path
 					//discussed in 3a, i-iii. Replaces p.get(j) with an equivalence class.
-					LexNode.Equivalence e = equiv(p, i, j);
+					Equivalence e = equiv(p, i, j);
 					pc.replace(e, j, j + 1); // Replacement is exclusive on the right endpoint.
 
 					//3b: performs MEX on the generalized path, finding the most significant pattern
 					//over the course of the loop (one for each SearchPath). 
-					LexNode.Pattern candidatePattern = extractSignificantPattern(pc);
+					Pattern candidatePattern = extractSignificantPattern(pc);
 					double tempSig = 0.5 * (computeLeftSignificance(p, candidatePattern) + computeRightSignificance(p, candidatePattern));
 					if (mostSignificantPattern == null || tempSig <= mostSignificant) {
 						mostSignificantPattern = candidatePattern;
@@ -88,10 +87,11 @@ public class LexGraph {
 			}
 			//3c: We already created the equivalence class.
 			//Add this to our list of equivalence classes.
-			if (mostSignificantEquivalence != null)
+			if (mostSignificantEquivalence != null) {
 				eclasses.put(mostSignificantEquivalence.name, mostSignificantEquivalence);
+				rewire(mostSignificantPattern, a);
+			}
 			//3d: rewire the graph, and reset the mostSignificant variables.
-			rewire(mostSignificantPattern, a);
 			mostSignificantPattern = null;
 			mostSignificantEquivalence = null;
 		}
@@ -112,8 +112,8 @@ public class LexGraph {
 			//For each SearchPath p, we want to find the bestPattern and
 			//equivalence class in that pattern. These variables are to assist
 			// in that.
-			LexNode.Pattern bestPattern = null;
-			LexNode.Equivalence bestEquivalence = null;
+			Pattern bestPattern = null;
+			Equivalence bestEquivalence = null;
 			double mostSignificant = 1;
 			double bestOverlap = 0;
 			
@@ -121,12 +121,12 @@ public class LexGraph {
 			for (int i = 0; i < p.size() - L - 1; i++) {
 				for (int j = i + 1; j <= i + L - 2; j++) {
 					// 4a, i: Finds all subpaths of paths that match the subpath
-					// of p at the endpoints i and K - L - 2 (TODO: and the slot?). Remember the paper
+					// of p at the endpoints i and K - L - 2 (TODO: and the slot? Paper is confusing). Remember the paper
 					// indexes by 1.
 					ArrayList<SearchPath> matches = endpoint_match(p.copy(i, p.size() - L - 1), j-i); // Remember right endpoint is excluded.
 					// 4a, ii: Selects/creates the equivalence class with the largest
 					// overlap with encountered vertices at spot j.
-					LexNode.Equivalence e = compare(p, matches, i, j);
+					Equivalence e = compare(p, matches, i, j);
 					// Construct the generalized search path, replacing
 					// pc.get(j) with the equivalence class e. 
 					pc.replace(e, j, j + 1); 
@@ -140,12 +140,12 @@ public class LexGraph {
 						// (vertex k (an equivalence class) intersect vertex j
 						// (an equivalence class)). This performs the intersection
 						// and alters vertex k of pc. 
-						LexNode.Equivalence vertex_k = (LexNode.Equivalence) pc.get(k);
-						LexNode.Equivalence vertex_j = (LexNode.Equivalence) pc.get(j);
+						Equivalence vertex_k = (Equivalence) pc.get(k);
+						Equivalence vertex_j = (Equivalence) pc.get(j);
 						vertex_k.pieces.retainAll(vertex_j.pieces);
 
 						// 4b, ii: Perform MEX on this generalized path
-						LexNode.Pattern candidatePattern = extractSignificantPattern(pc);
+						Pattern candidatePattern = extractSignificantPattern(pc);
 						if (candidatePattern != null)
 							allNullPattern = false;
 						// Extract the leading pattern P, as well as equivalence
@@ -168,11 +168,11 @@ public class LexGraph {
 			// I take this to mean the members in the intersection of vertex_k
 			// and vertex_j above, since it would be redundant
 			// to add the equivalence class at vertex_j.
-			if (bestOverlap < 1)
+			if (bestOverlap < 1 && bestEquivalence != null)
 				eclasses.put(bestEquivalence.name, bestEquivalence);
 
 			// 4d: rewire the graph with the best pattern found.
-			rewire(bestPattern, a);
+			if (bestPattern != null) { rewire(bestPattern, a); }
 			bestPattern = null;
 			bestEquivalence = null;
 			bestOverlap = 0;
@@ -182,13 +182,16 @@ public class LexGraph {
 	}
 	
 	// Find the leading significant pattern.
-	public LexNode.Pattern extractSignificantPattern(SearchPath sp) {
+	public Pattern extractSignificantPattern(SearchPath sp) {
 		double min = 1;
-		LexNode.Pattern bestPattern = null;
+		Pattern bestPattern = null;
 		for (int i = 0; i < sp.size(); i++)
 			for (int j = i + 1; j < sp.size(); j++) {
-				//TODO: has this pattern already been created? Need equality method to check.
-				LexNode.Pattern candidatePattern = new LexNode.Pattern(sp.copy(i, j + 1)); //TODO: creating a LexNode here may cause problems later.
+				//Check if the pattern from the subpath i, j already exists. If so,
+				//make use of it. If so, then candidatePattern will be an instance of
+				//Pattern. Otherwise, it will be an instance of Pattern.
+				//CandidatePattern.
+				Pattern candidatePattern = patternExists(sp.copy(i, j + 1));
 				
 				//Compute the average of the left and right significances. This is, I think,
 				//what is suggested in the paper.
@@ -199,11 +202,25 @@ public class LexGraph {
 					min = sig;
 				}
 			}
-
+		if (bestPattern instanceof Pattern.CandidatePattern)
+			bestPattern = new Pattern((Pattern.CandidatePattern) bestPattern);
 		return bestPattern;
 	}
 	
-	public void rewire(LexNode.Pattern P, boolean a) {
+	/**
+	 * Checks if there is a Pattern P with P.pieces = (ArrayList) sp. If there is,
+	 * P is returned. Otherwise, a pattern with P.pieces = (ArrayList) sp is created.
+	 * @param sp
+	 * @return
+	 */
+	public Pattern patternExists(SearchPath sp) {
+		for (Pattern p : pattern.values())
+			if (p.pieces.equals((ArrayList<LexNode>) sp))
+				return p;
+		return new CandidatePattern(sp);
+	}
+	
+	public void rewire(Pattern P, boolean a) {
 		// create new vertex corresponding to pattern
 		nodes.put(P.name, P);
 
@@ -231,7 +248,7 @@ public class LexGraph {
 				int currentIndex = i;
 
 				for (int k = 0; k < p.size(); k++) {
-					if (p.get(k) == vertices.get(currentIndex)) {
+					if (p.get(k).equals(vertices.get(currentIndex))) {
 						currentIndex++;
 						if (currentIndex == j) {
 							match++;
@@ -268,11 +285,12 @@ public class LexGraph {
 	* Calculate the right significance. Details are in the Supporting Text of
 	* Solan's paper. Needed for the MEX criterion. 
 	*/
-	public double computeRightSignificance(SearchPath sp, LexNode.Pattern P) {
+	public double computeRightSignificance(SearchPath sp, Pattern P) {
 		double sum = 0;
 		SearchPath subpath = new SearchPath();
 		subpath.add(P);
 		int i = sp.match(subpath);
+		if (i < 0) { return 1; };
 		int j = i + subpath.size();
 
 		for (int x = 0; x <= l(sp, i, j); x++)
@@ -283,13 +301,13 @@ public class LexGraph {
 	/**
 	* Calculate the left significance. Needed for the MEX criterion.
 	*/
-	public double computeLeftSignificance(SearchPath sp, LexNode.Pattern P) {
+	public double computeLeftSignificance(SearchPath sp, Pattern P) {
 		double sum = 0;
 		SearchPath subpath = new SearchPath();
 		subpath.add(P);
 		int i = sp.match(subpath);
+		if (i < 0) { return 1; };
 		int j = i + subpath.size();
-
 		for (int x = 0; x <= l(sp, i, j); x++)
 			sum += CombinatoricsUtils.binom(l(sp, i, j - 1), x,	eta * P(sp, i, j + 1, false)); //TODO: are i, j + 1 the correct indices?
 		return Math.min(Math.max(sum, 0.0), 1.0);
@@ -300,10 +318,9 @@ public class LexGraph {
 	 * at i and go to i + L - 1. This is needed for 3a, ii.
 	 * 
 	 */
-	public LexNode.Equivalence equiv(SearchPath sp, int i, int j) {
-		//TODO: check if the equivalence class that results has already been created.
-		LexNode.Equivalence toReturn = new LexNode.Equivalence(); 
-		toReturn.pieces.add(sp.get(j)); 
+	public Equivalence equiv(SearchPath sp, int i, int j) {
+		HashSet<LexNode> pieces = new HashSet<LexNode>();
+		pieces.add(sp.get(j)); 
 		//TODO: does this add sp.get(j) twice? I feel like we need a way to compare equality of SearchPaths.		
 		for (SearchPath p : paths) {
 			SearchPath left = sp.copy(i, j); // subpath from i (inclusive) to j - 1 (inclusive)
@@ -311,16 +328,30 @@ public class LexGraph {
 			int leftMatch = p.match(left); // this is stored so that the node in p can be retrieved.
 			//If we find a match, add the corresponding node of p to our Equivalence class.
 			if (leftMatch > 0 && p.match(right) > 0)
-				toReturn.pieces.add(p.get(leftMatch + j - i - 1));
+				pieces.add(p.get(leftMatch + j - i - 1));
 		}
-		eclasses.put(toReturn.name, toReturn); //TODO: need a separate HashMap for equivalence class?
-		return toReturn;
+		return equivalenceClassExists(pieces);
+	}
+	
+	/**
+	 * If an equivalence class E with E.pieces.equals(pieces), then E is returned.
+	 * Otherwise, an equivalence class is made with E.pieces = pieces.
+	 * @param pieces
+	 * @return
+	 */
+	public Equivalence equivalenceClassExists(HashSet<LexNode> pieces)  {
+		for (Equivalence e : eclasses.values()) 
+			if (e.pieces.equals(pieces))
+				return e;
+		Equivalence e = new Equivalence(pieces);
+		eclasses.put(e.name, e);
+		return e;
 	}
 
 	/**
 	* Returns an equivalence class of LexNodes that match p. Required for step 4a, ii. 
 	*/
-	public LexNode.Equivalence compare(SearchPath p, ArrayList<SearchPath> matches, int i, int j) {
+	public Equivalence compare(SearchPath p, ArrayList<SearchPath> matches, int i, int j) {
 		HashSet<LexNode> encountered = new HashSet<LexNode>();
 		for (SearchPath path : matches)
 			encountered.add(path.get(j - i)); 
@@ -328,30 +359,26 @@ public class LexGraph {
 
 		//Variables used to find the best equivalence class (step 4a, ii). 
 		double bestIntersect = 0;
-		LexNode.Equivalence best = null;
+		Equivalence best = null;
 
 		//At slot j, compare the set of encountered vertices to the list of existing equivalence classes
 		//Selecting the one that has the largest overlap with the encountered vertices, and the overlap is larger than 0.65
-		for (LexNode.Equivalence e : eclasses.values()) {
-			HashSet<LexNode> eclass = new HashSet<LexNode>(e.pieces);
+		for (Equivalence e : eclasses.values()) {
 			double size = encountered.size();
-			encountered.retainAll(eclass);
+			encountered.retainAll(e.pieces);
 			if (encountered.size() / size > bestIntersect && encountered.size() / size > omega) {
 				best = e;
 				bestIntersect = encountered.size()/size;
 			}
 		}
-		//TODO: see if the resulting Equivalence class has already been created.
-		LexNode.Equivalence toReturn = new LexNode.Equivalence();
 		//If the best is null, we didn't find an equivalence class satisfying the
 		//desired conditions. Use p.get(j) as an equivalence class.
 		if (best == null) {
-			toReturn.pieces.add(p.get(j));
+			HashSet<LexNode> temp = new HashSet<LexNode>(); 
+			temp.add(p.get(j));
+			return equivalenceClassExists(temp);
 		} else
-			toReturn = best;
-		
-		eclasses.put(toReturn.name, toReturn);
-		return toReturn;
+			return best;
 	}
 
 	/**
@@ -366,8 +393,8 @@ public class LexGraph {
 				int end = start + subpath.size() - 1;
 				int actualSlot = start + relativeSlot;
 				try {
-					match = (p.get(start) == subpath.get(0)) && (p.get(end) == subpath.get(subpath.size() - 1))
-								&& (p.get(actualSlot) == subpath.get(relativeSlot));
+					match = (p.get(start).equals(subpath.get(0))) && (p.get(end).equals(subpath.get(subpath.size() - 1)))
+								&& (p.get(actualSlot).equals(subpath.get(relativeSlot)));
 				} catch (Exception e) {
 					continue;
 				}

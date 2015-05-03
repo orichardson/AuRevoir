@@ -40,11 +40,12 @@ public class SearchPath extends ArrayList<LexNode> {
 		int currentIndex = 0;
 		//TODO: this method was changed to index free input.
 		for (int k = 0; k < size(); k++) {
-			if (subpath.get(currentIndex) == get(k)) { // there may be some issues here later?
-				currentIndex++;
-				
+			if (subpath.get(currentIndex).equals(get(k))) { // there may be some issues here later?
 				if (currentIndex == subpath.size() - 1)
 					return k - subpath.size() + 1;
+				currentIndex++;
+				
+
 			} else
 				currentIndex = 0;
 		}
