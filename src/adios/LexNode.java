@@ -70,13 +70,14 @@ public abstract class LexNode {
 		}
 
 		public ArrayList<LexNode> expand() {
-			ArrayList<SearchPath> expanded = SearchPath.expandAll(pieces);
-
-			ArrayList<LexNode> patterns = new ArrayList<LexNode>();
-			for (SearchPath p : expanded)
-				patterns.add(new Pattern(p));
-
-			return patterns;
+//			ArrayList<SearchPath> expanded = SearchPath.expandAll(pieces);
+//
+//			ArrayList<LexNode> patterns = new ArrayList<LexNode>();
+//			for (SearchPath p : expanded)
+//				patterns.add(new Pattern(p));
+//
+//			return patterns;
+			return pieces;
 		} 
 		
 		/**

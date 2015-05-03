@@ -26,7 +26,7 @@ public class LexGraph {
 		pattern_distillation(a);
 		generalization_first(a);
 		while (!generalization_bootstrap(a)) { System.out.println("Bootstrapping."); };
-
+		
 	}
 	
 	/**
@@ -51,6 +51,7 @@ public class LexGraph {
 		for (SearchPath p : paths) {
 			Pattern temp = extractSignificantPattern(p); //2a: find the leading significant pattern
 			rewire(temp, a);// 2b: rewire the graph
+			System.out.println(p);
 		}
 		return;
 	}
