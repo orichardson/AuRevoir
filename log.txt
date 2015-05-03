@@ -1,0 +1,33 @@
+##entry##
+5/3/2015, 5pm, Michael Zhao
+have been testing the pattern_distillation method on corpus.txt
+
+pattern_distillation consists of calling, for each path:
+    extractSignificantPattern
+    rewire
+    
+I think extractSignificantPattern is working, since if you
+print each path afterwards it has P1, P2, ... substituted for some of
+the nodes. So it looks like rewiring is working too.
+
+However, not so sure the patterns are being chosen correctly. All the
+patterns seem to come from the beginning of the paths. One big thing is
+I'm not sure I'm calculating the significances right, and comparing the
+significances right. The C++ implementation has a way of comparing these
+that I haven't implemented.
+
+-------------------------------------------------------------------
+
+Some big changes were: 
+    HashMap to store nodes, equivalence classes and patterns
+
+    Equivalence classes have pieces variable as a HashSet<LexNode>
+    equality of Equivalence classes are then equivalences of the sets of LexNodes
+    equality of Patterns are equivalences of ArrayList<LexNode>
+    equality of Leafs are just address comparisons
+    
+    Not creating new Equivalences or Patterns too quickly--checking if they
+    exist already in the HashMaps above.
+        for this to work, I created a CandidatePattern class which doesn't
+        increment NPATT, and can be converted into a Pattern
+##end##

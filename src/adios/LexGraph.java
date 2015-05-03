@@ -244,6 +244,8 @@ public class LexGraph {
 				// removal is exclusive on the right endpoint, hence ii +
 				// subpath.size() rather than ii + subpath.size() - 1
 		}
+		
+		System.out.println(P.pieces);
 	}
 
 	/**
