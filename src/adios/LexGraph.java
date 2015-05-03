@@ -25,7 +25,8 @@ public class LexGraph {
 	public void adios(boolean a) {
 		pattern_distillation(a);
 		generalization_first(a);
-		while (generalization_bootstrap(a)) {};
+		while (!generalization_bootstrap(a)) { System.out.println("Bootstrapping."); };
+
 	}
 	
 	/**
@@ -49,8 +50,9 @@ public class LexGraph {
 	public void pattern_distillation(boolean a) {
 		for (SearchPath p : paths) {
 			Pattern temp = extractSignificantPattern(p); //2a: find the leading significant pattern
-			if (temp != null) {	rewire(temp, a); } // 2b: rewire the graph
+			rewire(temp, a);// 2b: rewire the graph
 		}
+		return;
 	}
 	
 	/**
@@ -88,7 +90,6 @@ public class LexGraph {
 			//3c: We already created the equivalence class.
 			//Add this to our list of equivalence classes.
 			if (mostSignificantEquivalence != null) {
-				eclasses.put(mostSignificantEquivalence.name, mostSignificantEquivalence);
 				rewire(mostSignificantPattern, a);
 			}
 			//3d: rewire the graph, and reset the mostSignificant variables.
@@ -168,11 +169,12 @@ public class LexGraph {
 			// I take this to mean the members in the intersection of vertex_k
 			// and vertex_j above, since it would be redundant
 			// to add the equivalence class at vertex_j.
-			if (bestOverlap < 1 && bestEquivalence != null)
+			if (bestOverlap < 1 && bestEquivalence != null) {
 				eclasses.put(bestEquivalence.name, bestEquivalence);
-
+			}
+			
 			// 4d: rewire the graph with the best pattern found.
-			if (bestPattern != null) { rewire(bestPattern, a); }
+			rewire(bestPattern, a);
 			bestPattern = null;
 			bestEquivalence = null;
 			bestOverlap = 0;
@@ -192,7 +194,6 @@ public class LexGraph {
 				//Pattern. Otherwise, it will be an instance of Pattern.
 				//CandidatePattern.
 				Pattern candidatePattern = patternExists(sp.copy(i, j + 1));
-				
 				//Compute the average of the left and right significances. This is, I think,
 				//what is suggested in the paper.
 				double sig = 0.5 * (computeLeftSignificance(sp, candidatePattern) + computeRightSignificance(sp, candidatePattern));
@@ -202,8 +203,6 @@ public class LexGraph {
 					min = sig;
 				}
 			}
-		if (bestPattern instanceof Pattern.CandidatePattern)
-			bestPattern = new Pattern((Pattern.CandidatePattern) bestPattern);
 		return bestPattern;
 	}
 	
@@ -215,22 +214,31 @@ public class LexGraph {
 	 */
 	public Pattern patternExists(SearchPath sp) {
 		for (Pattern p : pattern.values())
-			if (p.pieces.equals((ArrayList<LexNode>) sp))
+			if (p.pieces.equals((ArrayList<LexNode>) sp)) {
 				return p;
+			}
 		return new CandidatePattern(sp);
 	}
 	
+	/**
+	 * Create new vertex corresponding to Pattern.
+	 * @param P
+	 * @param a
+	 */
 	public void rewire(Pattern P, boolean a) {
-		// create new vertex corresponding to pattern
+		if (P == null) { return; }
+		if (P instanceof CandidatePattern)
+			P = new Pattern((CandidatePattern) P);
 		nodes.put(P.name, P);
-
+		
 		SearchPath subpath = new SearchPath();
-		subpath.add(P);
+		subpath.addAll(P.pieces);
+		
 		// Replace, in every path, the portion that matches with P
 		for (SearchPath path : paths) {
-			int ii = path.match(subpath);
+			int ii = path.match(subpath); //TODO: rewire more than one portion of a sentence?
 
-			if (ii > 0 && (a || (computeLeftSignificance(path, P) < alpha) && computeRightSignificance(path, P) < alpha))
+			if (ii >= 0 && (a || (computeLeftSignificance(path, P) < alpha) && computeRightSignificance(path, P) < alpha))
 				path.replace(P, ii, ii + subpath.size());
 				// removal is exclusive on the right endpoint, hence ii +
 				// subpath.size() rather than ii + subpath.size() - 1
@@ -238,10 +246,12 @@ public class LexGraph {
 	}
 
 	/**
-	 * Counts how many times we see sp[i, j] in the rest of the graph.
+	 * Counts how many times we see sp[i, j] in the rest of the graph,
+	 * both endpoints included. This is inconsistent from some of the
+	 * other subpath matching methods.
 	 */
-	private int l(SearchPath sp, int i, int j) {
-		int match = 0;
+	private double l(SearchPath sp, int i, int j) {
+		double match = 0;
 
 		for (SearchPath vertices : sp.expandAll()) {
 			for (SearchPath p : paths) {
@@ -249,11 +259,11 @@ public class LexGraph {
 
 				for (int k = 0; k < p.size(); k++) {
 					if (p.get(k).equals(vertices.get(currentIndex))) {
-						currentIndex++;
 						if (currentIndex == j) {
 							match++;
 							currentIndex = i; //Go back to searching the rest of the sentence.
-						}
+						} else
+							currentIndex++;
 					} else
 						currentIndex = i;
 				}
@@ -262,14 +272,21 @@ public class LexGraph {
 
 		return match;
 	}
+	
+	private double l_spec() {
+		double sum = 0;
+		for (LexNode l : nodes.values())
+			sum += l(new SearchPath(l), 0, 0);
+		return sum;
+	}
 
 	/**
 	* Calculate the right or left probabilities (if forward is true or not). Needed
 	* for the MEX criterion.
 	*/
 	public double P(SearchPath sp, int i, int j, boolean forward) {
-		return forward ? l(sp, i, j) / l(sp, i, j - 1) : l(sp, i, j)
-				/ l(sp, i + 1, j);
+		double denom = i == j ? l_spec() : (forward ? l(sp, i, j-1) : l(sp, i + 1, j));
+		return l(sp, i, j)/denom;
 	}
 
 	/**
@@ -294,7 +311,7 @@ public class LexGraph {
 		int j = i + subpath.size();
 
 		for (int x = 0; x <= l(sp, i, j); x++)
-			sum += CombinatoricsUtils.binom(l(sp, i, j - 1), x, eta * P(sp, i, j - 1, true));
+			sum += CombinatoricsUtils.binom((int) l(sp, i, j - 1), x, eta * P(sp, i, j - 1, true));
 		return Math.min(Math.max(sum, 0.0), 1.0);
 	}
 	
@@ -309,7 +326,7 @@ public class LexGraph {
 		if (i < 0) { return 1; };
 		int j = i + subpath.size();
 		for (int x = 0; x <= l(sp, i, j); x++)
-			sum += CombinatoricsUtils.binom(l(sp, i, j - 1), x,	eta * P(sp, i, j + 1, false)); //TODO: are i, j + 1 the correct indices?
+			sum += CombinatoricsUtils.binom((int) l(sp, i, j - 1), x,	eta * P(sp, i, j + 1, false)); //TODO: are i, j + 1 the correct indices?
 		return Math.min(Math.max(sum, 0.0), 1.0);
 	}
 

@@ -53,6 +53,7 @@ public abstract class LexNode {
 		public Pattern(ArrayList<LexNode> a) {
 			this.pieces = a;
 			this.name = "P" + (++NPATT);
+			System.out.println(NPATT);
 		}
 		
 		/**
@@ -93,6 +94,10 @@ public abstract class LexNode {
 			public CandidatePattern(ArrayList<LexNode> a) {
 				super();
 				this.pieces = a;
+			}
+			
+			public String toString() {
+				return pieces.toString();
 			}
 		}
 	}

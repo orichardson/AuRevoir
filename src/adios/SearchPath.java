@@ -32,9 +32,11 @@ public class SearchPath extends ArrayList<LexNode> {
 		return toReturn;
 	}
 
-	/*
+	/**
 	 * Find whether there is a portion of this SearchPath that matches subpath. 
 	 * Returns the index of the first match. Returns -1 otherwise.
+	 * 
+	 * TODO: is this method correct?
 	 */
 	public int match(SearchPath subpath) {
 		int currentIndex = 0;
