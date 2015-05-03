@@ -88,7 +88,8 @@ public class LexGraph {
 			}
 			//3c: We already created the equivalence class.
 			//Add this to our list of equivalence classes.
-			eclasses.put(mostSignificantEquivalence.name, mostSignificantEquivalence);
+			if (mostSignificantEquivalence != null)
+				eclasses.put(mostSignificantEquivalence.name, mostSignificantEquivalence);
 			//3d: rewire the graph, and reset the mostSignificant variables.
 			rewire(mostSignificantPattern, a);
 			mostSignificantPattern = null;
@@ -186,6 +187,7 @@ public class LexGraph {
 		LexNode.Pattern bestPattern = null;
 		for (int i = 0; i < sp.size(); i++)
 			for (int j = i + 1; j < sp.size(); j++) {
+				//TODO: has this pattern already been created? Need equality method to check.
 				LexNode.Pattern candidatePattern = new LexNode.Pattern(sp.copy(i, j + 1)); //TODO: creating a LexNode here may cause problems later.
 				
 				//Compute the average of the left and right significances. This is, I think,
@@ -299,7 +301,8 @@ public class LexGraph {
 	 * 
 	 */
 	public LexNode.Equivalence equiv(SearchPath sp, int i, int j) {
-		LexNode.Equivalence toReturn = new LexNode.Equivalence();
+		//TODO: check if the equivalence class that results has already been created.
+		LexNode.Equivalence toReturn = new LexNode.Equivalence(); 
 		toReturn.pieces.add(sp.get(j)); 
 		//TODO: does this add sp.get(j) twice? I feel like we need a way to compare equality of SearchPaths.		
 		for (SearchPath p : paths) {
@@ -310,7 +313,7 @@ public class LexGraph {
 			if (leftMatch > 0 && p.match(right) > 0)
 				toReturn.pieces.add(p.get(leftMatch + j - i - 1));
 		}
-		nodes.put(toReturn.name, toReturn); //TODO: need a separate HashMap for equivalence class?
+		eclasses.put(toReturn.name, toReturn); //TODO: need a separate HashMap for equivalence class?
 		return toReturn;
 	}
 
@@ -338,7 +341,7 @@ public class LexGraph {
 				bestIntersect = encountered.size()/size;
 			}
 		}
-
+		//TODO: see if the resulting Equivalence class has already been created.
 		LexNode.Equivalence toReturn = new LexNode.Equivalence();
 		//If the best is null, we didn't find an equivalence class satisfying the
 		//desired conditions. Use p.get(j) as an equivalence class.
@@ -347,7 +350,7 @@ public class LexGraph {
 		} else
 			toReturn = best;
 		
-		nodes.put(toReturn.name, toReturn);
+		eclasses.put(toReturn.name, toReturn);
 		return toReturn;
 	}
 
