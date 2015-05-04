@@ -38,6 +38,7 @@ public class SearchPath extends ArrayList<LexNode> {
 	 * 
 	 * TODO: is this method correct?
 	 */
+	@Deprecated
 	public ArrayList<Integer> match(SearchPath subpath) {
 		ArrayList<Integer> matches = new ArrayList<Integer>();
 		int currentIndex = 0;
