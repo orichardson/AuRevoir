@@ -16,7 +16,7 @@ public class LexGraph {
 	ArrayList<SearchPath> paths;
 
 	double eta = 0.65;
-	double alpha = 0.01;
+	double alpha = 1;
 	int L = 4;
 	double omega = 0.65;
 
@@ -25,8 +25,10 @@ public class LexGraph {
 	 */
 	public void adios(boolean a) {
 		pattern_distillation(a);
-		// generalization_first(a);
-		// while (!generalization_bootstrap(a)) { System.out.println("Bootstrapping."); };
+//		 generalization_first(a);
+//		 while (!generalization_bootstrap(a)) { System.out.println("Bootstrapping."); };
+		for (SearchPath sentence : paths)
+			System.out.println(sentence);
 
 	}
 
@@ -212,15 +214,18 @@ public class LexGraph {
 				// what is suggested in the paper.
 				// TODO: Maybe compare maxima instead of average
 
-				double sig = (computeLeftSignificance(sp, candidatePattern) + computeRightSignificance(
-						sp, candidatePattern)) / 2;
+				double sig = Math.max(computeLeftSignificance(sp, candidatePattern),computeRightSignificance(
+						sp, candidatePattern));
+				
+//				double sig = 0.5 * (computeLeftSignificance(sp, candidatePattern) + computeRightSignificance(
+//						sp, candidatePattern));
+				System.out.println("Candidate pattern : " + candidatePattern.pieces + "with sig: " + sig);
 
 				if (sig < alpha && (bestPattern == null || sig < min)) {
 					bestPattern = candidatePattern;
 					min = sig;
 				}
 			}
-
 		return bestPattern;
 	}
 
@@ -248,21 +253,24 @@ public class LexGraph {
 	public void rewire(Pattern P, boolean a) {
 		if (P == null)
 			return;
-
 		P.actualize();
 		nodes.put(P.name, P);
-
-		SearchPath subpath = new SearchPath();
-		subpath.addAll(P.pieces);
-
+		System.out.println("********************************************Rewiring " + P.pieces);
 		// Replace, in every path, the portion that matches with P
 		for (SearchPath path : paths) {
-			for (Integer ii : path.match(subpath))
-				if (a || (computeLeftSignificance(path, P) < alpha)
-						&& computeRightSignificance(path, P) < alpha)
-					path.replace(P, ii, ii + subpath.size());
-			// removal is exclusive on the right endpoint, hence ii +
-			// subpath.size() rather than ii + subpath.size() - 1
+			int index = P.matchFirst(path);
+			while(index >= 0) {
+				if (a || (computeLeftSignificance(path, P) < alpha
+						&& computeRightSignificance(path, P) < alpha)) {
+					System.out.println(path);
+					path.replace(P, index, index + P.pieces.size());
+				}
+				// removal is exclusive on the right endpoint, hence ii +
+				// subpath.size() rather than ii + subpath.size() - 1
+				
+				index = P.matchFirst(path, index+1);
+			}
+				
 		}
 
 	}
@@ -271,15 +279,15 @@ public class LexGraph {
 	 * Counts how many times we see sp[i, j] in the rest of the graph, both endpoints included. This
 	 * is inconsistent from some of the other subpath matching methods.
 	 */
-	private double l(SearchPath sp, int i, int j) {
+	double l(SearchPath sp, int i, int j) {
 		double match = 0;
 
-		for (SearchPath vertices : sp.expandAll()) {
+		for (SearchPath possible : sp.expandAll()) {
 			for (SearchPath p : paths) {
 				int currentIndex = i;
 
 				for (int k = 0; k < p.size(); k++) {
-					if (p.get(k).equals(vertices.get(currentIndex))) {
+					if (p.get(k).equals(possible.get(currentIndex))) {
 						if (currentIndex == j) {
 							match++;
 							currentIndex = i; // Go back to searching the rest of the sentence.
@@ -294,7 +302,7 @@ public class LexGraph {
 		return match;
 	}
 
-	private double l_spec() {
+	double l_spec() {
 		double sum = 0;
 		for (LexNode l : nodes.values())
 			sum += l(new SearchPath(l), 0, 0);
@@ -327,16 +335,14 @@ public class LexGraph {
 	 */
 	public double computeRightSignificance(SearchPath sp, Pattern P) {
 		double sum = 0;
-		SearchPath subpath = new SearchPath();
-		subpath.add(P);
-		int i = sp.firstMatch(subpath);
+		int i = P.matchFirst(sp);
 		if (i < 0)
 			return 1;
 
-		int j = i + subpath.size();
+		int j = i + P.pieces.size()-1;
 		for (int x = 0; x <= l(sp, i, j); x++)
 			sum += CombinatoricsUtils.binom((int) l(sp, i, j - 1), x, eta * P(sp, i, j - 1, true));
-		return Math.min(Math.max(sum, 0.0), 1.0);
+		return sum;
 	}
 
 	/**
@@ -344,20 +350,25 @@ public class LexGraph {
 	 */
 	public double computeLeftSignificance(SearchPath sp, Pattern P) {
 		double sum = 0;
-		SearchPath subpath = new SearchPath();
-		subpath.addAll(P.expand());
-		int i = sp.firstMatch(subpath);
+
+		int i = P.matchFirst(sp);
 
 		if (i < 0)
 			return 1;
 
-		int j = i + subpath.size();
+		//TODO: really sketchy length calculation. Note that patterns can 
+		// (1) match multiple times,
+		// (2) have multiple lengths, and,
+		// (3) have multiple start indices. Hoping that order of
+		// generalization takes care of these issues.
+		int j = i + P.pieces.size()-1;//because inclusive
 
-		for (int x = 0; x <= l(sp, i, j); x++)
-			sum += CombinatoricsUtils.binom((int) l(sp, i, j + 1), x, eta * P(sp, i, j + 1, false));
+		for (int x = 0; x <= l(sp, i, j); x++) {
+			sum += CombinatoricsUtils.binom((int) l(sp, i + 1, j), x, eta * P(sp, i + 1, j, false));
+		}
 		// TODO: are i, j + 1 the correct indices?
-
-		return Math.min(Math.max(sum, 0.0), 1.0);
+		
+		return sum;
 	}
 
 	/**
