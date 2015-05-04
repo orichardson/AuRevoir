@@ -15,8 +15,8 @@ public class LexGraph {
 	ArrayList<SearchPath> paths;
 
 	double eta = 0.65;
-	double alpha = 0.001;
-	int L = 3;
+	double alpha = 0.01;
+	int L = 4;
 	double omega = 0.65;
 
 	/**
@@ -24,8 +24,8 @@ public class LexGraph {
 	*/
 	public void adios(boolean a) {
 		pattern_distillation(a);
-		generalization_first(a);
-		while (!generalization_bootstrap(a)) { System.out.println("Bootstrapping."); };
+//		generalization_first(a);
+//		while (!generalization_bootstrap(a)) { System.out.println("Bootstrapping."); };
 		
 	}
 	
@@ -51,7 +51,6 @@ public class LexGraph {
 		for (SearchPath p : paths) {
 			Pattern temp = extractSignificantPattern(p); //2a: find the leading significant pattern
 			rewire(temp, a);// 2b: rewire the graph
-			System.out.println(p);
 		}
 		return;
 	}
@@ -106,7 +105,8 @@ public class LexGraph {
 	 * @return
 	 */
 	public boolean generalization_bootstrap(boolean a) {
-		//A boolean for if all patterns found are null. If they are, then we are done.
+		//A boolean for if all patterns found are null. If true, all patterns/equivs are null,
+		//so we are done. If false, at least one pattern/equiv is not null. So not done.
 		boolean allNullPattern = true;
 
 		for (SearchPath p : paths) {
@@ -199,11 +199,12 @@ public class LexGraph {
 				//what is suggested in the paper.
 				double sig = 0.5 * (computeLeftSignificance(sp, candidatePattern) + computeRightSignificance(sp, candidatePattern));
 
-				if (bestPattern == null || (sig < alpha && sig <= min)) {
+				if (bestPattern == null || (sig < alpha && sig < min)) {
 					bestPattern = candidatePattern;
 					min = sig;
 				}
 			}
+		
 		return bestPattern;
 	}
 	
@@ -237,15 +238,13 @@ public class LexGraph {
 		
 		// Replace, in every path, the portion that matches with P
 		for (SearchPath path : paths) {
-			int ii = path.match(subpath); //TODO: rewire more than one portion of a sentence?
-
-			if (ii >= 0 && (a || (computeLeftSignificance(path, P) < alpha) && computeRightSignificance(path, P) < alpha))
-				path.replace(P, ii, ii + subpath.size());
-				// removal is exclusive on the right endpoint, hence ii +
-				// subpath.size() rather than ii + subpath.size() - 1
+			for (Integer ii : path.match(subpath))
+				if (a || (computeLeftSignificance(path, P) < alpha) && computeRightSignificance(path, P) < alpha)
+					path.replace(P, ii, ii + subpath.size());
+					// removal is exclusive on the right endpoint, hence ii +
+					// subpath.size() rather than ii + subpath.size() - 1
 		}
 		
-		System.out.println(P.pieces);
 	}
 
 	/**
@@ -289,6 +288,8 @@ public class LexGraph {
 	*/
 	public double P(SearchPath sp, int i, int j, boolean forward) {
 		double denom = i == j ? l_spec() : (forward ? l(sp, i, j-1) : l(sp, i + 1, j));
+		if (Double.isNaN(l(sp, i, j)/denom))
+			return 0;
 		return l(sp, i, j)/denom;
 	}
 
@@ -309,10 +310,9 @@ public class LexGraph {
 		double sum = 0;
 		SearchPath subpath = new SearchPath();
 		subpath.add(P);
-		int i = sp.match(subpath);
+		int i = sp.firstMatch(subpath);
 		if (i < 0) { return 1; };
 		int j = i + subpath.size();
-
 		for (int x = 0; x <= l(sp, i, j); x++)
 			sum += CombinatoricsUtils.binom((int) l(sp, i, j - 1), x, eta * P(sp, i, j - 1, true));
 		return Math.min(Math.max(sum, 0.0), 1.0);
@@ -324,12 +324,13 @@ public class LexGraph {
 	public double computeLeftSignificance(SearchPath sp, Pattern P) {
 		double sum = 0;
 		SearchPath subpath = new SearchPath();
-		subpath.add(P);
-		int i = sp.match(subpath);
+		subpath.addAll(P.expand());
+		int i = sp.firstMatch(subpath);
 		if (i < 0) { return 1; };
 		int j = i + subpath.size();
 		for (int x = 0; x <= l(sp, i, j); x++)
-			sum += CombinatoricsUtils.binom((int) l(sp, i, j - 1), x,	eta * P(sp, i, j + 1, false)); //TODO: are i, j + 1 the correct indices?
+			sum += CombinatoricsUtils.binom((int) l(sp, i, j - 1), x, eta * P(sp, i, j + 1, false)); //TODO: are i, j + 1 the correct indices?
+		
 		return Math.min(Math.max(sum, 0.0), 1.0);
 	}
 
@@ -345,14 +346,15 @@ public class LexGraph {
 		for (SearchPath p : paths) {
 			SearchPath left = sp.copy(i, j); // subpath from i (inclusive) to j - 1 (inclusive)
 			SearchPath right = sp.copy(j + 1, i + L); // subpath from j + 1 (inclusive) to i + L - 1 (inclusive)
-			int leftMatch = p.match(left); // this is stored so that the node in p can be retrieved.
+//			int leftMatch = p.match(left); // this is stored so that the node in p can be retrieved.
+			int leftMatch = p.firstMatch(left);
 			//If we find a match, add the corresponding node of p to our Equivalence class.
-			if (leftMatch > 0 && p.match(right) > 0)
+			if (leftMatch >= 0 && p.firstMatch(right) >= 0)
 				pieces.add(p.get(leftMatch + j - i - 1));
 		}
 		return equivalenceClassExists(pieces);
 	}
-	
+
 	/**
 	 * If an equivalence class E with E.pieces.equals(pieces), then E is returned.
 	 * Otherwise, an equivalence class is made with E.pieces = pieces.

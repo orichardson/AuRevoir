@@ -38,7 +38,33 @@ public class SearchPath extends ArrayList<LexNode> {
 	 * 
 	 * TODO: is this method correct?
 	 */
-	public int match(SearchPath subpath) {
+	public ArrayList<Integer> match(SearchPath subpath) {
+		ArrayList<Integer> matches = new ArrayList<Integer>();
+		int currentIndex = 0;
+		//TODO: this method was changed to index free input.
+		for (int k = 0; k < size(); k++) {
+			if (subpath.get(currentIndex).equals(get(k))) { // there may be some issues here later?
+				if (currentIndex == subpath.size() - 1) {
+					matches.add(k - subpath.size() + 1);
+					currentIndex = 0;
+				} else
+					currentIndex++;
+				
+
+			} else
+				currentIndex = 0;
+		}
+
+		return matches;
+	}
+	
+	/**
+	 * Find whether there is a portion of this SearchPath that matches subpath. 
+	 * Returns the index of the first match. Returns -1 otherwise.
+	 * 
+	 * TODO: is this method correct?
+	 */
+	public int firstMatch(SearchPath subpath) {
 		int currentIndex = 0;
 		//TODO: this method was changed to index free input.
 		for (int k = 0; k < size(); k++) {
