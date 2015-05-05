@@ -3,7 +3,9 @@ package adios;
 
 public class CombinatoricsUtils {
 	public static double binom(int n, int k, double p) {
-		return Math.exp(logFac(n) - logFac(k) - logFac(n - k) + k*Math.log(p) + (n-k)*Math.log(1-p));
+		double rslt =  Math.exp(logFac(n) - logFac(k) - logFac(n - k) + (k)*Math.log(p) + (n-k)*Math.log(1-p));
+		
+		return rslt;
 	}
 	
 	public static double logFac(int n) {

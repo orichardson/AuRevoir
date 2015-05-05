@@ -16,7 +16,7 @@ public class LexGraph {
 	ArrayList<SearchPath> paths;
 
 	double eta = 0.65;
-	double alpha = 1;
+	double alpha = 0.15;
 	int L = 4;
 	double omega = 0.65;
 
@@ -25,8 +25,14 @@ public class LexGraph {
 	 */
 	public void adios(boolean a) {
 		pattern_distillation(a);
-//		 generalization_first(a);
-//		 while (!generalization_bootstrap(a)) { System.out.println("Bootstrapping."); };
+		// generalization_first(a);
+		//
+		// while (!generalization_bootstrap(a)) {
+		// System.out.println("\n\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+		// + "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+		// System.out.println("Bootstrapping.");
+		// }
+
 		for (SearchPath sentence : paths)
 			System.out.println(sentence);
 
@@ -88,9 +94,13 @@ public class LexGraph {
 					// pattern
 					// over the course of the loop (one for each SearchPath).
 					Pattern candidatePattern = extractSignificantPattern(pc);
-					double tempSig = 0.5 * (computeLeftSignificance(p, candidatePattern) + computeRightSignificance(
-							p, candidatePattern));
-					if (mostSignificantPattern == null || tempSig <= mostSignificant) {
+					double D_max = Math.max(D(p, i, j, true), D(p, i, j, false));
+					if (D_max >= eta)
+						continue;
+
+					double tempSig = Math.max(computeLeftSignificance(p, candidatePattern),
+							computeRightSignificance(p, candidatePattern));
+					if (mostSignificantPattern == null || tempSig < mostSignificant) {
 						mostSignificantPattern = candidatePattern;
 						mostSignificantEquivalence = e;
 						mostSignificant = tempSig;
@@ -166,9 +176,13 @@ public class LexGraph {
 						// Extract the leading pattern P, as well as equivalence
 						// class associated with P, and the overlap of that
 						// class, over the course of the loop (one for each SearchPath).
-						double tempSig = 0.5 * (computeLeftSignificance(pc, candidatePattern) + computeRightSignificance(
-								pc, candidatePattern));
-						if (bestPattern == null || tempSig <= mostSignificant) {
+						double D_max = Math.max(D(pc, i, j, true), D(pc, i, j, false));
+						if (D_max >= eta)
+							continue;
+
+						double tempSig = Math.max(computeLeftSignificance(pc, candidatePattern),
+								computeRightSignificance(pc, candidatePattern));
+						if (bestPattern == null || tempSig < mostSignificant) {
 							bestPattern = candidatePattern;
 							bestEquivalence = vertex_k;
 							bestOverlap = vertex_k.pieces.size() / (double) vertex_j.pieces.size();
@@ -214,12 +228,18 @@ public class LexGraph {
 				// what is suggested in the paper.
 				// TODO: Maybe compare maxima instead of average
 
-				double sig = Math.max(computeLeftSignificance(sp, candidatePattern),computeRightSignificance(
-						sp, candidatePattern));
-				
-//				double sig = 0.5 * (computeLeftSignificance(sp, candidatePattern) + computeRightSignificance(
-//						sp, candidatePattern));
-				System.out.println("Candidate pattern : " + candidatePattern.pieces + "with sig: " + sig);
+				double D_max = Math.max(D(sp, i, j, true), D(sp, i, j, false));
+				if (D_max >= eta)
+					continue;
+
+				double sig = Math.max(computeLeftSignificance(sp, candidatePattern),
+						computeRightSignificance(sp, candidatePattern));
+
+				// double sig = 0.5 * (computeLeftSignificance(sp, candidatePattern) +
+				// computeRightSignificance(
+				// sp, candidatePattern));
+				System.out.println("Candidate pattern: " + candidatePattern.pieces + " with sig: "
+						+ sig + "\n for the path: " + sp);
 
 				if (sig < alpha && (bestPattern == null || sig < min)) {
 					bestPattern = candidatePattern;
@@ -259,18 +279,19 @@ public class LexGraph {
 		// Replace, in every path, the portion that matches with P
 		for (SearchPath path : paths) {
 			int index = P.matchFirst(path);
-			while(index >= 0) {
-				if (a || (computeLeftSignificance(path, P) < alpha
-						&& computeRightSignificance(path, P) < alpha)) {
+			while (index >= 0) {
+				if (a
+						|| (computeLeftSignificance(path, P) < alpha && computeRightSignificance(
+								path, P) < alpha)) {
 					System.out.println(path);
 					path.replace(P, index, index + P.pieces.size());
 				}
 				// removal is exclusive on the right endpoint, hence ii +
 				// subpath.size() rather than ii + subpath.size() - 1
-				
-				index = P.matchFirst(path, index+1);
+
+				index = P.matchFirst(path, index + 1);
 			}
-				
+
 		}
 
 	}
@@ -281,6 +302,9 @@ public class LexGraph {
 	 */
 	double l(SearchPath sp, int i, int j) {
 		double match = 0;
+
+		if (sp.toString().equals("[Pam, thinks, that, Cindy, P1, please, is, easy]"))
+			System.out.println("EXPANDED: " + sp.expandAll());
 
 		for (SearchPath possible : sp.expandAll()) {
 			for (SearchPath p : paths) {
@@ -293,8 +317,11 @@ public class LexGraph {
 							currentIndex = i; // Go back to searching the rest of the sentence.
 						} else
 							currentIndex++;
-					} else
+					} else {
+						if (currentIndex != i)
+							k--;
 						currentIndex = i;
+					}
 				}
 			}
 		}
@@ -314,9 +341,11 @@ public class LexGraph {
 	 * criterion.
 	 */
 	public double P(SearchPath sp, int i, int j, boolean forward) {
-		double denom = i == j ? l_spec() : (forward ? l(sp, i, j - 1) : l(sp, i + 1, j));
-		if (Double.isNaN(l(sp, i, j) / denom))
+		double denom = (i == j) ? l_spec() : (forward ? l(sp, i, j - 1) : l(sp, i + 1, j));
+		if (denom == 0)
 			return 0;
+		if (l(sp, i, j) == 0)
+			System.err.println(sp.copy(i, j + 1));
 		return l(sp, i, j) / denom;
 	}
 
@@ -338,8 +367,15 @@ public class LexGraph {
 		int i = P.matchFirst(sp);
 		if (i < 0)
 			return 1;
+		int j = i + P.pieces.size() - 1;
+		if (sp.toString().equals("[Pam, thinks, that, Cindy, P1, please, is, easy]")
+				&& P.pieces.toString().equals("[thinks, that, Cindy]")) {
+			System.err.printf("(i, j) = (%d, %d)\n", i, j);
+			System.err.println("x_max=" + l(sp, i, j));
+			System.err.println("n=" + l(sp, i, j - 1));// incorrect
+			System.err.println("p=" + P(sp, i, j - 1, true));
 
-		int j = i + P.pieces.size()-1;
+		}
 		for (int x = 0; x <= l(sp, i, j); x++)
 			sum += CombinatoricsUtils.binom((int) l(sp, i, j - 1), x, eta * P(sp, i, j - 1, true));
 		return sum;
@@ -356,18 +392,18 @@ public class LexGraph {
 		if (i < 0)
 			return 1;
 
-		//TODO: really sketchy length calculation. Note that patterns can 
+		// TODO: really sketchy length calculation. Note that patterns can
 		// (1) match multiple times,
 		// (2) have multiple lengths, and,
 		// (3) have multiple start indices. Hoping that order of
 		// generalization takes care of these issues.
-		int j = i + P.pieces.size()-1;//because inclusive
+		int j = i + P.pieces.size() - 1;// because inclusive
 
 		for (int x = 0; x <= l(sp, i, j); x++) {
 			sum += CombinatoricsUtils.binom((int) l(sp, i + 1, j), x, eta * P(sp, i + 1, j, false));
 		}
 		// TODO: are i, j + 1 the correct indices?
-		
+
 		return sum;
 	}
 
