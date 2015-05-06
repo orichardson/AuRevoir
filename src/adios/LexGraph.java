@@ -9,7 +9,6 @@ import adios.LexNode.Equivalence;
 import adios.LexNode.Pattern;
 
 public class LexGraph {
-
 	HashMap<String, LexNode> nodes;
 	HashMap<String, Equivalence> eclasses;
 	HashMap<String, Pattern> patterns;
@@ -214,7 +213,7 @@ public class LexGraph {
 
 	// Find the leading significant pattern.
 	public Pattern extractSignificantPattern(SearchPath sp) {
-		double min = 1;
+		double min = 0;
 		Pattern bestPattern = null;
 
 		for (int i = 0; i < sp.size(); i++)
@@ -235,16 +234,16 @@ public class LexGraph {
 				double sig = Math.max(computeLeftSignificance(sp, candidatePattern),
 						computeRightSignificance(sp, candidatePattern));
 
-				// double sig = 0.5 * (computeLeftSignificance(sp, candidatePattern) +
-				// computeRightSignificance(
-				// sp, candidatePattern));
-				System.out.println("Candidate pattern: " + candidatePattern.pieces + " with sig: "
-						+ sig + "\n for the path: " + sp);
-
+				System.out.println((float) sig + "\tCandidate pattern: " + candidatePattern.pieces
+						+ " for the path: \n\t\t" + sp);
 				if (sig < alpha && (bestPattern == null || sig < min)) {
 					bestPattern = candidatePattern;
 					min = sig;
 				}
+
+				// We learned something, maybe? --reasons why we can't use just
+				// P_R or P_L, and similarly with D_R and D_L. Biasing prl towards
+				// smaller lengths didn't seem to work either.
 			}
 		return bestPattern;
 	}
@@ -302,11 +301,26 @@ public class LexGraph {
 	 */
 	double l(SearchPath sp, int i, int j) {
 		double match = 0;
+		// Pattern p = new Pattern(sp.copy(i,j+1),false);
+		//
+		// for(SearchPath path : paths)
+		// {
+		// int index = 0;
+		// int rslt = p.matchFirst(path);
+		//
+		// while(rslt >= 0) {
+		// index = rslt + 1;
+		// rslt = p.matchFirst(path,index);
+		//
+		// match++;
+		// }
+		// }
 
-		if (sp.toString().equals("[Pam, thinks, that, Cindy, P1, please, is, easy]"))
-			System.out.println("EXPANDED: " + sp.expandAll());
+		// if (sp.toString().equals("[Pam, thinks, that, Cindy, P1, please, is, easy]"))
+		// System.out.println("EXPANDED: " + sp.expandAll());
 
 		for (SearchPath possible : sp.expandAll()) {
+			// SearchPath possible = sp;
 			for (SearchPath p : paths) {
 				int currentIndex = i;
 
@@ -325,7 +339,6 @@ public class LexGraph {
 				}
 			}
 		}
-
 		return match;
 	}
 
@@ -344,8 +357,11 @@ public class LexGraph {
 		double denom = (i == j) ? l_spec() : (forward ? l(sp, i, j - 1) : l(sp, i + 1, j));
 		if (denom == 0)
 			return 0;
-		if (l(sp, i, j) == 0)
-			System.err.println(sp.copy(i, j + 1));
+		if (l(sp, i, j) == 0) {
+			// System.err.println(sp);
+			// System.err.println("i, j = " + i + "," + j);
+			// System.err.println(sp.copy(i, j + 1));
+		}
 		return l(sp, i, j) / denom;
 	}
 
